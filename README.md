@@ -1,6 +1,5 @@
 # upgrade-compass
 
-[![CI](https://github.com/Ain3x/upgrade-compass/actions/workflows/ci.yml/badge.svg)](https://github.com/Ain3x/upgrade-compass/actions/workflows/ci.yml)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
 
 **Moving to Expo SDK 57? See what moves with it and what blocks you, before you touch `package.json`.**
