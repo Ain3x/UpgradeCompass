@@ -1,0 +1,55 @@
+{
+  "name": "upgrade-compass",
+  "version": "0.1.0",
+  "description": "Plan dependency upgrades toward a target (like an Expo SDK) and see exactly what blocks them",
+  "keywords": [
+    "expo",
+    "react-native",
+    "upgrade",
+    "dependencies",
+    "peer-dependencies",
+    "npm",
+    "cli"
+  ],
+  "license": "ISC",
+  "author": "Aine",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ain3x/upgrade-compass.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ain3x/upgrade-compass/issues"
+  },
+  "homepage": "https://github.com/Ain3x/upgrade-compass#readme",
+  "type": "module",
+  "bin": {
+    "upgrade-compass": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "semver": "^7.8.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/semver": "^7.8.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12"
+  }
+}
