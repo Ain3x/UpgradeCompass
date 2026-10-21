@@ -7,6 +7,7 @@ export interface PlanOptions {
   dir: string;
   targets: string[];
   allowMajor?: boolean;
+  strictSdk?: boolean;
 }
 
 export function parseTarget(spec: string): RawTarget {
@@ -37,7 +38,7 @@ export async function runPlan(opts: PlanOptions, source: MetadataSource): Promis
   const manifest = await readManifest(opts.dir);
   if (manifest.lockfile === 'none') {
     console.error(
-      'Note: no package-lock.json found; assuming the lowest version each range allows.',
+      'Note: no package-lock.json or pnpm-lock.yaml found; assuming the lowest version each range allows.',
     );
   }
 
@@ -59,5 +60,9 @@ export async function runPlan(opts: PlanOptions, source: MetadataSource): Promis
   const bundled = expo ? await fetchBundled(expo.version) : undefined;
   if (expo && !bundled) console.error('Warning: could not load bundledNativeModules.json; SDK ranges not enforced.');
 
-  return solve({ deps: manifest.deps, targets, metas, bundled, allowMajor: opts.allowMajor });
+  const direct = new Set(manifest.deps.map((d) => d.name));
+  const used = Object.keys(manifest.overrides).filter((n) => direct.has(n)).length;
+  if (used > 0) console.error(`Honoring ${used} override(s) from your project.`);
+
+  return solve({ deps: manifest.deps, targets, metas, bundled, allowMajor: opts.allowMajor, strictSdk: opts.strictSdk, overrides: manifest.overrides });
 }

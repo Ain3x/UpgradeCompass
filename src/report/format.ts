@@ -3,7 +3,7 @@ import type { Conflict, Plan, PlanItem, Status } from '../types.js';
 
 const MAX_REASONS = 3;
 
-const ORDER: Status[] = ['target', 'blocked', 'upgrade', 'ahead', 'unknown', 'ok'];
+const ORDER: Status[] = ['target', 'blocked', 'upgrade', 'ahead', 'pinned', 'unknown', 'ok'];
 const LABEL: Record<Status, string> = {
   target: 'TARGET',
   blocked: 'BLOCKED',
@@ -11,10 +11,15 @@ const LABEL: Record<Status, string> = {
   unknown: 'UNKNOWN',
   ahead: 'AHEAD',
   ok: 'OK',
+  pinned: 'PINNED',
 };
 
 function describeCore(c: Conflict): string {
-  if (c.kind === 'sdk') return `does not match the expo SDK range ${c.range} (is ${c.actual})`;
+  if (c.kind === 'sdk') {
+    return c.source === 'override'
+      ? `does not match your override ${c.range} (is ${c.actual})`
+      : `does not match the expo SDK range ${c.range} (is ${c.actual})`;
+  }
 
   return c.kind === 'own-peer'
     ? `needs ${c.peer} ${c.range}, plan has ${c.actual}`
@@ -26,6 +31,7 @@ function describe(c: Conflict): string {
 }
 
 function move(i: PlanItem): string {
+   if (i.status === 'pinned') return `${i.from} (override ${i.overrideRange})`;
   if (i.status === 'ahead') return `${i.from} (SDK pins ${i.sdkRange})`;
   if (i.status === 'blocked') return `${i.from} (no compatible release)`;
   if (i.status === 'unknown') return `${i.from ?? 'unresolved'} (not enough metadata)`;

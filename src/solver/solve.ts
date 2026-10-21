@@ -24,6 +24,7 @@ export interface SolveInput {
   allowMajor?: boolean;
   /** Enforce SDK pins even when the installed version is newer than the pin. */
   strictSdk?: boolean;
+  overrides?: Record<string, string>;
 }
 
 /** Highest stable version of a package that satisfies the range. */
@@ -257,6 +258,7 @@ export function solve({
   bundled: bundledIn = {},
   allowMajor = false,
   strictSdk = false,
+  overrides = {},
 }: SolveInput): Plan {
   const index = buildIndex(metas);
   const pinned = new Map(targets.map((t) => [t.name, t.version] as const));
@@ -271,10 +273,19 @@ export function solve({
   // Packages already newer than the SDK's pin are left alone (reported as AHEAD)
   // unless --strict-sdk is given: downgrading them is rarely what a project wants,
   // and it can itself create conflicts with libraries that need the newer version.
-  const ahead = new Set<string>();
+  // Overrides are the project's own decision, so they beat the SDK's pin.
+  const overridden = new Set<string>();
   const bundled: Record<string, string> = { ...bundledIn };
+  for (const [name, range] of Object.entries(overrides)) {
+    if (semver.validRange(range) === null) continue;
+    bundled[name] = range;
+    overridden.add(name);
+  }
+
+  const ahead = new Set<string>();
   if (!strictSdk) {
     for (const [name, range] of Object.entries(bundledIn)) {
+      if (overridden.has(name)) continue;
       const inst = installed.get(name);
       if (
         inst &&
@@ -348,6 +359,11 @@ export function solve({
     }
   }
 
+  const tag = (name: string, cs: Conflict[]): Conflict[] =>
+    overridden.has(name)
+      ? cs.map((c) => (c.kind === 'sdk' ? { ...c, source: 'override' as const } : c))
+      : cs;
+
   const items: PlanItem[] = [];
   const names = new Set([...deps.map((d) => d.name), ...targets.map((t) => t.name)]);
 
@@ -368,13 +384,13 @@ export function solve({
       items.push({ name, status: 'unknown', from, currentConflicts: [], latestConflicts: [] });
     } else {
       const final = sidelined.has(name) ? installed.get(name)! : assignment.get(name)!;
-      const currentConflicts = conflictsFor(name, final, assignment, index, bundled);
+      const currentConflicts = tag(name, conflictsFor(name, final, assignment, index, bundled));
       // For AHEAD packages, `latest` is the version Expo recommends, and
       // `latestConflicts` says what following that recommendation would break.
       const latest = ahead.has(name)
         ? candidatesFor(name, installed.get(name)!, index, false, bundledIn[name]).find(
-            (v) => v !== installed.get(name),
-          )
+          (v) => v !== installed.get(name),
+        )
         : [...candidates.get(name)!].sort(semver.rcompare)[0];
       const status =
         hard(currentConflicts).length > 0
@@ -383,7 +399,9 @@ export function solve({
             ? 'upgrade'
             : ahead.has(name)
               ? 'ahead'
-              : 'ok';
+              : overridden.has(name)
+                ? 'pinned'
+                : 'ok';
       items.push({
         name,
         status,
@@ -391,10 +409,11 @@ export function solve({
         to: status === 'blocked' ? undefined : final,
         latest,
         sdkRange: ahead.has(name) ? bundledIn[name] : undefined,
+        overrideRange: overridden.has(name) ? bundled[name] : undefined,
         currentConflicts,
         latestConflicts:
           latest && latest !== final
-            ? conflictsFor(name, latest, assignment, index, bundled)
+            ? tag(name, conflictsFor(name, latest, assignment, index, bundled))
             : [],
       });
     }

@@ -24,7 +24,8 @@ export interface DepSpec {
 export interface Manifest {
     name?: string;
     deps: DepSpec[];
-    lockfile: 'package-lock' | 'none';
+    lockfile: 'package-lock' | 'pnpm-lock' | 'none';
+    overrides: Record<string, string>;
 }
 
 export interface RawTarget {
@@ -36,7 +37,7 @@ export interface Target extends RawTarget {
     version: string;
 }
 
-export type Status = 'target' | 'ok' | 'upgrade' | 'blocked' | 'ahead' |'unknown';
+export type Status = 'target' | 'ok' | 'upgrade' | 'blocked' | 'ahead' | 'pinned' |'unknown';
 
 export interface Conflict {
     kind: 'own-peer' | 'required-by' | 'sdk';
@@ -45,6 +46,7 @@ export interface Conflict {
     actual: string;
     by?: string;
     optional?: boolean;
+    source?: 'override';
 }
 
 export interface PlanItem {
@@ -56,6 +58,7 @@ export interface PlanItem {
     currentConflicts: Conflict[];
     latestConflicts: Conflict[];
     sdkRange?: string;
+    overrideRange?: string;
 }
 
 export interface MissingPeer {

@@ -405,4 +405,57 @@ describe('missing peers', () => {
     expect(item(plan, 'blocked-lib').status).toBe('blocked');
     expect(plan.missingPeers).toEqual([]);
   });
+
+  describe('overrides', () => {
+    const libA = meta('lib-a', { '2.0.1': {}, '3.0.0': {}, '3.1.0': {} });
+
+    it('keeps an overridden package where the project forces it, even against the SDK pin', () => {
+      const plan = solve({
+        deps: [dep('lib-a', '3.0.0')],
+        targets: expoTarget,
+        metas: metasOf(libA),
+        bundled: { 'lib-a': '~2.0.0' },
+        overrides: { 'lib-a': '3.0.0' },
+      });
+      expect(item(plan, 'lib-a')).toMatchObject({ status: 'pinned', to: '3.0.0', overrideRange: '3.0.0' });
+    });
+
+    it('does not move an overridden package even when a newer release fits', () => {
+      const without = solve({ deps: [dep('lib-a', '3.0.0')], targets: expoTarget, metas: metasOf(libA) });
+      expect(item(without, 'lib-a')).toMatchObject({ status: 'upgrade', to: '3.1.0' });
+
+      const withOverride = solve({
+        deps: [dep('lib-a', '3.0.0')],
+        targets: expoTarget,
+        metas: metasOf(libA),
+        overrides: { 'lib-a': '3.0.0' },
+      });
+      expect(item(withOverride, 'lib-a')).toMatchObject({ status: 'pinned', to: '3.0.0' });
+    });
+
+    it('blames the library that disagrees with an override, not the overridden package', () => {
+      const react = meta('react', { '19.2.3': {}, '19.3.1': {} });
+      const emoji = meta('emoji-react', { '1.1.1': { react: '^16.8 || ^17 || ^18' } });
+      const plan = solve({
+        deps: [dep('react', '19.2.3'), dep('emoji-react', '1.1.1')],
+        targets: expoTarget,
+        metas: metasOf(react, emoji),
+        overrides: { react: '19.2.3' },
+      });
+      expect(item(plan, 'react').status).toBe('pinned');
+      expect(item(plan, 'emoji-react').status).toBe('blocked');
+    });
+
+    it('labels an unsatisfiable override as the override, not the SDK', () => {
+      const plan = solve({
+        deps: [dep('lib-a', '2.0.1')],
+        targets: expoTarget,
+        metas: metasOf(libA),
+        overrides: { 'lib-a': '^9.0.0' },
+      });
+      const a = item(plan, 'lib-a');
+      expect(a.status).toBe('blocked');
+      expect(a.currentConflicts[0]).toMatchObject({ kind: 'sdk', source: 'override' });
+    });
+  });
 });
